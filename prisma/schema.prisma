@@ -1,0 +1,67 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  userId     String    @unique //will be provided by clerk
+  userName   String    
+  email      String    @unique
+  profilePic String
+  files       File[]
+  projects   Project[] 
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+model File {
+  fileId    String    @id @default(uuid())
+  fileName  String
+  language  Languages
+  user      User     @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  userId    String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([userId, fileId])
+}
+
+model Project {
+  projectId    String       @id @default(uuid())
+  projectName  String
+  projectStack projectStack
+  user         User       @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  userId       String
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+
+  @@index([userId, projectId])
+}
+
+enum Languages {
+  javaScript
+  java
+  cpp
+  c
+  python
+  sql
+}
+
+enum projectStack {
+  nodeJs
+  reactJs
+  nextJs
+}
