@@ -6,7 +6,8 @@ export async function signInCheck(
   res: Response,
   next: NextFunction
 ): Promise<any> {
-  const { userId } = req.body;
+  const userId =
+    req.body?.userId || req.query?.userId || req.headers["x-user-id"]; // optional: from headers
 
   console.log(userId);
 
