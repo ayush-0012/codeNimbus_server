@@ -30,6 +30,7 @@ model File {
   fileId    String    @id @default(uuid())
   fileName  String
   language  Languages
+  compressedCode Bytes?
   user      User     @relation(fields: [userId], references: [userId], onDelete: Cascade)
   userId    String
   createdAt DateTime  @default(now())
