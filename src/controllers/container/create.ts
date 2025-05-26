@@ -4,6 +4,7 @@ import { Languages } from "@prisma/client";
 import { buildDockerImage } from "../../utils/buildImage.utils";
 import { getAllContainers } from "../../utils/getAllContainers";
 import { CONTAINER_POOL, MAX_POOL_SIZE } from "../../utils/containerPool";
+import prisma from "../../utils/prisma.utils";
 
 const docker: Docker = new Docker();
 
@@ -16,10 +17,14 @@ const docker: Docker = new Docker();
 // const MAX_POOL_SIZE: number = 3;
 
 export async function createContainer(
-  req: Request<{}, {}, { language: Languages; userId: string }>,
+  req: Request<
+    {},
+    {},
+    { userId: string; fileName: string; language: Languages }
+  >,
   res: Response
 ): Promise<any> {
-  const { userId } = req.body;
+  const { userId, fileName, language } = req.body;
 
   const dockerImage: string = "multilang-code-runner:latest";
 
@@ -88,11 +93,20 @@ export async function createContainer(
     const containerInfo = await container.inspect();
     console.log("Container Status:", containerInfo.State.Status);
 
+    const file = await prisma.file.create({
+      data: {
+        fileName,
+        language,
+        userId,
+      },
+    });
+
     return res.status(201).json({
       containerId: container.id,
       idle: false,
       message: "container created successfully",
       container: containerInfo,
+      file,
     });
   } catch (error) {
     return res
