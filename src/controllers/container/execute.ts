@@ -1,5 +1,7 @@
 import { Request, Response } from "express";
 import Docker from "dockerode";
+import { compressDecompressCode } from "../../utils/compressCode";
+import prisma from "../../utils/prisma.utils";
 
 const docker: Docker = new Docker();
 
@@ -7,11 +9,17 @@ export async function executeCode(
   req: Request<
     {},
     {},
-    { containerId: string; language: string; code: string; userId: string }
+    {
+      containerId: string;
+      language: string;
+      code: string;
+      userId: string;
+      fileId: string;
+    }
   >,
   res: Response
 ): Promise<any> {
-  const { containerId, language, code, userId } = req.body;
+  const { containerId, language, code, userId, fileId } = req.body;
 
   try {
     const container = docker.getContainer(containerId);
@@ -56,9 +64,26 @@ export async function executeCode(
     });
 
     stream.on("end", () => {
-      const cleanedOutput = output.replace(/[\x00-\x1F\x7F-\x9F]+/g, "").trim();
+      const cleanedOutput = output
+        .replace(/[\x00-\x09\x0B\x0C\x0E-\x1F\x7F-\x9F]+/g, "")
+        .trim();
       res.json({ output: cleanedOutput });
     });
+
+    const result = await compressDecompressCode(code);
+
+    const compressCode = result?.compressCode;
+
+    const updatedCode = await prisma.file.update({
+      where: {
+        fileId,
+      },
+      data: {
+        compressedCode: compressCode,
+      },
+    });
+
+    console.log(updatedCode);
   } catch (error) {
     console.error("Execution error:", error);
     res.status(500).json({ error: "Failed to execute code" });
