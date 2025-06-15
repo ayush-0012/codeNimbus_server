@@ -1,10 +1,11 @@
 import { Request, Response } from "express";
 import Docker from "dockerode";
-import { Languages } from "@prisma/client";
+import { Languages, Project, projectStack } from "@prisma/client";
 import { buildDockerImage } from "../../utils/buildImage.utils";
 import { getAllContainers } from "../../utils/getAllContainers";
 import { CONTAINER_POOL, MAX_POOL_SIZE } from "../../utils/containerPool";
 import prisma from "../../utils/prisma.utils";
+import { FileAlreadyExists } from "../../utils/fileAlreadyExist";
 
 const docker: Docker = new Docker();
 
@@ -20,13 +21,26 @@ export async function createContainer(
   req: Request<
     {},
     {},
-    { userId: string; fileName: string; language: Languages }
+    {
+      userId: string;
+      fileName: string;
+      language: Languages;
+      libs: projectStack;
+      fileId: string;
+    }
   >,
   res: Response
 ): Promise<any> {
-  const { userId, fileName, language } = req.body;
+  const { userId, fileName, language, fileId, libs } = req.body;
+  let file;
 
-  const dockerImage: string = "multilang-code-runner:latest";
+  let dockerImage: string;
+
+  if (language) {
+    dockerImage = "multilang-code-runner:latest";
+  } else {
+    dockerImage = "multilibs-runner:latest";
+  }
 
   //reusing an idle container
   const idleContainer = CONTAINER_POOL.find((c) => c.idle);
@@ -93,13 +107,24 @@ export async function createContainer(
     const containerInfo = await container.inspect();
     console.log("Container Status:", containerInfo.State.Status);
 
-    const file = await prisma.file.create({
-      data: {
-        fileName,
-        language,
-        userId,
-      },
-    });
+    const doesFileExist = await FileAlreadyExists(fileId);
+
+    if (doesFileExist) {
+      return res.status(200).json({
+        containerId: container.id,
+        idle: false,
+        message: "spinning container for a already existing file ",
+        file: doesFileExist,
+      });
+    } else {
+      file = await prisma.file.create({
+        data: {
+          fileName,
+          language,
+          userId,
+        },
+      });
+    }
 
     return res.status(201).json({
       containerId: container.id,

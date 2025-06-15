@@ -1,5 +1,10 @@
 import { Request, Response } from "express";
 import prisma from "../utils/prisma.utils";
+import { inflate, deflate } from "zlib";
+import { promisify } from "util";
+import { promiseHooks } from "v8";
+import { buffer } from "stream/consumers";
+import { decompressCode } from "../utils/compressCode";
 
 interface reqObj {
   userId: string;
@@ -42,6 +47,8 @@ export async function fetchUserFiles(
 
   console.log("userId from query params", userId);
 
+  const asyncInflate = promisify(inflate);
+
   if (!userId || Array.isArray(userId)) {
     return res.status(400).json({ message: "Valid userId is required" });
   }
@@ -52,6 +59,8 @@ export async function fetchUserFiles(
         userId: userId.toString(),
       },
     });
+
+    const decompressedFiles = await Promise.all(files.map(async (file) => {}));
 
     return res.status(200).json({
       message: "Files fetched successfully",
