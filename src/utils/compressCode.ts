@@ -1,19 +1,27 @@
 import { deflate, inflate } from "zlib";
 import { promisify } from "util";
 
-const asyncDeflate = promisify(deflate);
-const asyncInflate = promisify(inflate);
+const asyncDeflate = promisify(deflate); //for compressing
+const asyncInflate = promisify(inflate); //for decompressing
 
-export async function compressDecompressCode(code: string) {
+export async function compressCode(code: string) {
   const input = Buffer.from(code);
 
   try {
     const compressCode = await asyncDeflate(input);
 
-    const decompressCode = await asyncInflate(compressCode);
-
-    return { compressCode, decompressCode };
+    return compressCode;
   } catch (error) {
     console.log("error occurred while compressing code", error);
+  }
+}
+
+export async function decompressCode(compressCode: Buffer) {
+  try {
+    const decompressCode = await asyncInflate(compressCode);
+
+    return decompressCode.toString();
+  } catch (error) {
+    console.log("error occurred while decompressing code", error);
   }
 }
