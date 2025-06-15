@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import Docker from "dockerode";
-import { compressDecompressCode } from "../../utils/compressCode";
+import { compressCode } from "../../utils/compressCode";
 import prisma from "../../utils/prisma.utils";
 
 const docker: Docker = new Docker();
@@ -70,16 +70,14 @@ export async function executeCode(
       res.json({ output: cleanedOutput });
     });
 
-    const result = await compressDecompressCode(code);
-
-    const compressCode = result?.compressCode;
+    const compressedCode = await compressCode(code);
 
     const updatedCode = await prisma.file.update({
       where: {
         fileId,
       },
       data: {
-        compressedCode: compressCode,
+        compressedCode,
       },
     });
 
