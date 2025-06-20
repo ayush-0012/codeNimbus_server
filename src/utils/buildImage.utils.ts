@@ -6,23 +6,43 @@ const dockerode: Dockerode = new Dockerode();
 
 //build image if missing
 export async function buildDockerImage(imageName: string) {
-  const dockerFilePath = path.join("./containers/multiLang/Dockerfile"); //gettig dockerfile path
+  const dockerFilePathLang = path.join("./containers/multiLang/Dockerfile"); //gettig dockerfile path
+  const dockerFilePathLibs = path.join("./containers/multiLibs/Dockerfile");
 
-  if (fs.existsSync(dockerFilePath)) {
-    console.log(`Dockerfile found at ${dockerFilePath}`);
+  let stream: any;
+
+  //checking for multiLang path
+  fs.existsSync(dockerFilePathLang)
+    ? console.log(`Dockerfile found at ${dockerFilePathLang}`)
+    : console.log(`Dockerfile not found at ${dockerFilePathLang}`);
+
+  //checking for multiLibs path
+  fs.existsSync(dockerFilePathLibs)
+    ? console.log(`Dockerfile found at ${dockerFilePathLibs}`)
+    : console.log(`Dockerfile not found at ${dockerFilePathLibs}`);
+
+  if (imageName === "multilang-code-runner:latest") {
+    stream = await dockerode.buildImage(
+      {
+        context: path.dirname(dockerFilePathLang),
+        src: ["Dockerfile"],
+      },
+      {
+        t: imageName,
+      }
+    );
   } else {
-    console.log(`Dockerfile not found at ${dockerFilePath}`);
+    console.log("spinning a container for react");
+    stream = await dockerode.buildImage(
+      {
+        context: path.dirname(dockerFilePathLibs),
+        src: ["Dockerfile"],
+      },
+      {
+        t: imageName,
+      }
+    );
   }
-
-  const stream = await dockerode.buildImage(
-    {
-      context: path.dirname(dockerFilePath),
-      src: ["Dockerfile"],
-    },
-    {
-      t: imageName,
-    }
-  );
 
   await new Promise((resolve, reject) => {
     dockerode.modem.followProgress(stream, (err, res) =>
