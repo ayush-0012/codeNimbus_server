@@ -1,11 +1,24 @@
 import { Request, Response } from "express";
 import Docker from "dockerode";
-import { Languages, Project, projectStack } from "@prisma/client";
+import { Languages, projectStack } from "@prisma/client";
 import { buildDockerImage } from "../../utils/buildImage.utils";
 import { getAllContainers } from "../../utils/getAllContainers";
 import { CONTAINER_POOL, MAX_POOL_SIZE } from "../../utils/containerPool";
 import prisma from "../../utils/prisma.utils";
 import { FileAlreadyExists } from "../../utils/fileAlreadyExist";
+
+interface project {
+  userId: string;
+  stack: projectStack;
+  projectName: string;
+}
+
+interface singleFile {
+  userId: string;
+  fileName: string;
+  language: Languages;
+  fileId: string;
+}
 
 const docker: Docker = new Docker();
 
@@ -18,29 +31,15 @@ const docker: Docker = new Docker();
 // const MAX_POOL_SIZE: number = 3;
 
 export async function createContainer(
-  req: Request<
-    {},
-    {},
-    {
-      userId: string;
-      fileName: string;
-      language: Languages;
-      libs: projectStack;
-      fileId: string;
-    }
-  >,
+  req: Request,
   res: Response
 ): Promise<any> {
-  const { userId, fileName, language, fileId, libs } = req.body;
+  const { userId, fileName, language, fileId }: singleFile = req.body;
   let file;
 
   let dockerImage: string;
 
-  if (language) {
-    dockerImage = "multilang-code-runner:latest";
-  } else {
-    dockerImage = "multilibs-runner:latest";
-  }
+  dockerImage = "multilang-code-runner:latest";
 
   //reusing an idle container
   const idleContainer = CONTAINER_POOL.find((c) => c.idle);
@@ -132,6 +131,61 @@ export async function createContainer(
       message: "container created successfully",
       container: containerInfo,
       file,
+    });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: "error occurred creating container", error });
+  }
+}
+
+export async function createProject(req: Request, res: Response): Promise<any> {
+  const { userId, stack, projectName }: project = req.body;
+
+  let dockerImage: string;
+
+  dockerImage = "multilibs:latest";
+
+  try {
+    await docker.getImage(dockerImage).inspect(); //checking if docker image is available
+    console.log("docker image is availaible ");
+  } catch (error) {
+    console.log("building docker image", dockerImage);
+    await buildDockerImage(dockerImage); //building image if not available
+  }
+
+  try {
+    const container = await docker.createContainer({
+      Image: dockerImage,
+      AttachStderr: true,
+      AttachStdin: true,
+      AttachStdout: true,
+      Tty: true,
+      Cmd: ["tail", "-f", "/dev/null"],
+      HostConfig: {
+        AutoRemove: false, // cleanup after exit
+        Memory: 218 * 1024 * 1024, // limiting RAM
+      },
+    });
+
+    await container.start();
+
+    const logs = await container.logs({
+      stdout: true,
+      stderr: true,
+      follow: false,
+    });
+    console.log("Container Logs:", logs.toString());
+
+    //checking container status
+    const containerInfo = await container.inspect();
+    console.log("Container Status:", containerInfo.State.Status);
+
+    return res.status(201).json({
+      containerId: container.id,
+      idle: false,
+      message: "container created successfully",
+      container: containerInfo,
     });
   } catch (error) {
     return res
